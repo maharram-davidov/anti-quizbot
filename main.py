@@ -8,7 +8,7 @@ import requests
 import numpy as np
 import re
 
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyAGOsRA2QNub5m8UmUSZwpYrJeAf_raDY0"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=YOUR_API_KEY"
 HEADERS = {
     'Content-Type': 'application/json'
 }

@@ -70,7 +70,7 @@ def capture_and_ocr(region):
     # Extract and clean the text from the screenshot
     text = extract_text(screenshot).strip()
     cleaned_text = clean_text(text)  # Clean the extracted text
-    print(f"\n\n---SUAL----------------------------------------")
+    print(f"\n\n--------------------------------------SUAL----------------------------------------")
 
     if cleaned_text:
         send_to_gemini_api(cleaned_text)
