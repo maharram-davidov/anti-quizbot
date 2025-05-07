@@ -1,0 +1,105 @@
+import easyocr
+import os
+from PIL import  ImageEnhance, ImageFilter
+import pyautogui
+import keyboard
+import time
+import requests
+import numpy as np
+import re
+
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyAGOsRA2QNub5m8UmUSZwpYrJeAf_raDY0"
+HEADERS = {
+    'Content-Type': 'application/json'
+}
+
+# Initialize EasyOCR reader
+def get_reader(lang='az'):
+    if lang == 'ru':
+        return easyocr.Reader(['en', 'ru'])
+    elif lang == 'az':
+        return easyocr.Reader(['en', 'az'])
+    else:
+        return easyocr.Reader(['en'])
+
+reader = get_reader('az')  # or 'ru'
+
+
+def extract_text(image):
+    # Convert to grayscale
+    gray_image = image.convert("L")
+
+    # Enhance the image (increase contrast, sharpen)
+    enhanced_image = ImageEnhance.Contrast(gray_image).enhance(2)
+    enhanced_image = enhanced_image.filter(ImageFilter.SHARPEN)
+
+    # Convert the PIL image to a numpy array
+    image_np = np.array(enhanced_image)
+
+    # Perform OCR
+    result = reader.readtext(image_np)
+
+    # Concatenate the detected texts
+    text = " ".join([text[1] for text in result])
+
+    return text
+
+def clean_text(text):
+    # Basic cleanup of OCR text
+    # Remove unnecessary characters or symbols that OCR might have picked up
+    cleaned_text = text.strip().replace("\n", " ").replace("  ", " ")  # Remove extra spaces
+
+    # Add a newline after the capital letters following a "?" mark
+    cleaned_text = re.sub(r'(\?)([A-Z])', r'\1\n\2', cleaned_text)
+
+    # Add a, b, c, d to options (assuming options follow a common pattern like "A) Option1")
+    options = re.findall(r'([A-D])\)(.*?)\s', cleaned_text)
+    for i, option in enumerate(options, start=1):
+        cleaned_text = cleaned_text.replace(f"{option[0]})", f"{chr(97+i)})")  # Replace A) with a), etc.
+
+    return cleaned_text
+
+def capture_and_ocr(region):
+    # Capture screenshot of the specified region
+    os.makedirs("screenshots", exist_ok=True)
+    screenshot = pyautogui.screenshot(region=region)
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    screenshot_path = os.path.join("screenshots", f"screenshot_{timestamp}.png")
+    screenshot.save(screenshot_path)
+
+    # Extract and clean the text from the screenshot
+    text = extract_text(screenshot).strip()
+    cleaned_text = clean_text(text)  # Clean the extracted text
+    print(f"\n\n---SUAL----------------------------------------")
+
+    if cleaned_text:
+        send_to_gemini_api(cleaned_text)
+    else:
+        print("No text detected.")
+
+def send_to_gemini_api(text):
+    print(text)
+    payload = {
+        "contents": [{
+            "parts": [{"text": f"Cavabi tek sozle ver: {text}"}]
+        }]
+    }
+
+    # Send the request to the Gemini API
+    response = requests.post(GEMINI_API_URL, json=payload, headers=HEADERS)
+
+    if response.status_code == 200:
+        response_data = response.json()
+        try:
+            generated_text = response_data['candidates'][0]['content']['parts'][0]['text']
+            print("\n\n---CAVAB:", generated_text)
+        except Exception as e:
+            print("Error parsing Gemini response:", e)
+            print("Full response:", response_data)
+    else:
+        print(f"Error: {response.status_code}, {response.text}")
+
+while True:
+    if keyboard.is_pressed('j'):
+        region = (150, 200, 800, 800)  # Define the screenshot region
+        capture_and_ocr(region)
